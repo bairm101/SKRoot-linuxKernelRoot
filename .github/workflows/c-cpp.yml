@@ -1,0 +1,50 @@
+name: C++ Compile (Kernel Module)
+
+# 触发条件：master分支push或PR时执行
+on:
+  push:
+    branches: [ master ]
+    paths:
+      - 'Lite_version/sources/patch_kernel_root/**' # 仅当目标目录文件变更时触发
+  pull_request:
+    branches: [ master ]
+    paths:
+      - 'Lite_version/sources/patch_kernel_root/**'
+
+# 工作流任务
+jobs:
+  compile:
+    runs-on: ubuntu-latest # 使用最新Ubuntu环境（适合Linux内核编译）
+    
+    steps:
+      # 1. 拉取项目代码
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: false # 若无子模块，设为false（有则改为true）
+
+      # 2. 安装编译依赖（内核头文件、C/C++编译器、make等）
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update -y
+          # 安装基础编译工具链 + 当前内核头文件（编译内核模块必需）
+          sudo apt-get install -y build-essential linux-headers-$(uname -r)
+
+      # 3. 进入项目目录并执行编译（假设用Makefile构建）
+      - name: Compile project
+        run: |
+          # 进入目标编译目录
+          cd Lite_version/sources/patch_kernel_root
+          # 清理旧编译产物（可选，按需启用）
+          # make clean
+          # 执行编译（依赖项目根目录有Makefile）
+          make -j$(nproc) # -j$(nproc)：使用所有CPU核心加速编译
+
+      # 4. （可选）保存编译产物（如需归档可启用）
+      - name: Archive build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: kernel-root-module
+          path: |
+            Lite_version/sources/patch_kernel_root/*.ko # 归档生成的内核模块（.ko文件）
+            Lite_version/sources/patch_kernel_root/*.out # 若有可执行文件，添加对应路径
